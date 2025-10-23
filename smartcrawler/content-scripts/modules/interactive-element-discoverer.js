@@ -32,7 +32,16 @@ class InteractiveElementDiscoverer {
       modals: this.findModals()
     };
     
-    const totalCount = Object.values(elements).reduce((sum, arr) => sum + arr.length, 0);
+    // Calculate total count (handle modals.modals structure)
+    let totalCount = 0;
+    for (const [key, value] of Object.entries(elements)) {
+      if (key === 'modals' && value.modals) {
+        totalCount += value.modals.length + (value.triggers ? value.triggers.length : 0);
+      } else if (Array.isArray(value)) {
+        totalCount += value.length;
+      }
+    }
+    
     chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `✅ Found ${totalCount} interactive elements across ${Object.keys(elements).length} categories`});
     
     return elements;

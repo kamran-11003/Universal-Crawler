@@ -35,6 +35,7 @@ class NodeAnalyzer:
         
         # Display testable components sections
         self._display_summary_metrics(testable_components)
+        self._display_interactive_elements_section()
         self._display_forms_section(testable_components['forms'])
         self._display_links_section(testable_components['links'])
         self._display_apis_section(testable_components['apis'])
@@ -59,6 +60,52 @@ class NodeAnalyzer:
         with col4:
             has_auth = "Yes" if components['authentication']['has_authentication'] else "No"
             st.metric("Authentication", has_auth)
+    
+    def _display_interactive_elements_section(self):
+        """Display interactive elements found on the page"""
+        interactive_elements = self.node.get('interactiveElements', {})
+        
+        if not interactive_elements:
+            return
+        
+        # Count total interactive elements
+        total_count = 0
+        for element_type, element_data in interactive_elements.items():
+            if isinstance(element_data, dict):
+                total_count += element_data.get('total', 0)
+            elif isinstance(element_data, list):
+                total_count += len(element_data)
+        
+        with st.expander(f"🎮 Interactive Elements ({total_count})", expanded=total_count > 0):
+            if total_count > 0:
+                for element_type, element_data in interactive_elements.items():
+                    if isinstance(element_data, dict):
+                        element_count = element_data.get('total', 0)
+                        elements = element_data.get('elements', [])
+                    elif isinstance(element_data, list):
+                        element_count = len(element_data)
+                        elements = element_data
+                    else:
+                        continue
+                    
+                    if element_count > 0:
+                        st.markdown(f"**{element_type.title()}** ({element_count})")
+                        
+                        # Show first 5 elements
+                        for i, elem in enumerate(elements[:5], 1):
+                            if isinstance(elem, dict):
+                                elem_text = elem.get('text', elem.get('label', elem.get('id', 'Unknown')))
+                                elem_selector = elem.get('selector', 'N/A')
+                                st.write(f"  {i}. {elem_text} (`{elem_selector}`)")
+                            elif isinstance(elem, str):
+                                st.write(f"  {i}. {elem}")
+                        
+                        if element_count > 5:
+                            st.write(f"  ... and {element_count - 5} more")
+                        
+                        st.markdown("---")
+            else:
+                st.info("No interactive elements detected on this page")
     
     def _display_forms_section(self, forms_data: Dict):
         with st.expander(f"📝 Forms ({forms_data['total_count']})", expanded=forms_data['total_count'] > 0):

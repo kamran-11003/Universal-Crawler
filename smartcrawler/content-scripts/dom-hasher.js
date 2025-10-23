@@ -16,7 +16,10 @@ class DOMHasher {
     
     const startTime = performance.now();
     const semanticContent = this.extractSemanticContent(element);
-    const hash = this.fnv1aHash(semanticContent);
+    // Include URL path to ensure different pages get unique hashes
+    const urlPath = window.location.pathname + window.location.search;
+    const combinedContent = `${urlPath}::${semanticContent}`;
+    const hash = this.fnv1aHash(combinedContent);
     const duration = performance.now() - startTime;
     
     chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `Hash generated in ${duration.toFixed(2)}ms`});

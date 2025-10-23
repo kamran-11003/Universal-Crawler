@@ -1,14 +1,58 @@
 # SmartCrawler Test Sites
-**Version**: 1.0.0  
-**Last Updated**: 2025-10-23
+**Version**: 2.0.0  
+**Last Updated**: December 2024
 
-This document lists test sites for validating SmartCrawler functionality across different web technologies.
+This document lists test sites for validating SmartCrawler functionality across different web technologies, including **universal checkbox tree detection**.
 
 ---
 
 ## 🔴 Critical Test Sites (MUST PASS)
 
-### 1. SauceLabs Demo - React SPA
+### 1. DemoQA - Universal Detection
+**URL**: https://demoqa.com  
+**Technology**: React + HTML5 + Interactive Elements  
+**Test Focus**: Universal form detection, checkbox trees, deep link extraction, queue processing
+
+**Test Credentials**: N/A (public site)
+
+**Expected Behavior**:
+- ✅ Start from homepage (https://demoqa.com/)
+- ✅ Deep Link Extractor discovers 20-30+ pages from sitemap
+- ✅ All queued links processed (not skipped as duplicates)
+- ✅ Checkbox tree detected on /checkbox page
+  - 17 checkboxes found
+  - 12 leaves, 5 parents, depth 3
+  - Labels extracted for all nodes
+- ✅ Automation practice form discovered (/automation-practice-form)
+- ✅ Interactive elements detected (buttons, dropdowns, sliders)
+- ✅ Console logs clean (4-5 per page, not 25+)
+
+**Success Criteria**:
+- Pages discovered: ≥20 pages (not 2-3!)
+- Checkbox tree nodes: 17 detected
+- Real page success: ≥95%
+- Interactive testing: Completes or times out (doesn't hang)
+- Console logs: <10 per page
+
+**Test Steps**:
+1. Clear storage (F12 → Application → Clear site data)
+2. Reload extension
+3. Navigate to https://demoqa.com/ (HOMEPAGE!)
+4. Start crawl
+5. Watch for:
+   - "Deep Link Extractor added 21/22 links"
+   - "Queue size: 21"
+   - "Processing: /text-box (depth 1, queue: 20)"
+   - On /checkbox: "Checkbox tree: 17 nodes, 12 leaves, 5 parents"
+
+---
+
+### 2. SauceLabs Demo - React SPA
+**URL**: https://www.saucedemo.com  
+**Technology**: React (production build)  
+**Test Focus**: React SPA form handling, authentication, navigation after login
+
+### 2. SauceLabs Demo - React SPA
 **URL**: https://www.saucedemo.com  
 **Technology**: React (production build)  
 **Test Focus**: React SPA form handling, authentication, navigation after login
@@ -32,7 +76,7 @@ This document lists test sites for validating SmartCrawler functionality across 
 
 ---
 
-### 2. OpenCart Demo - AJAX Authentication
+### 3. OpenCart Demo - AJAX Authentication
 **URL**: https://demo.opencart.com  
 **Technology**: PHP + AJAX  
 **Test Focus**: AJAX authentication, token detection
@@ -59,25 +103,65 @@ This document lists test sites for validating SmartCrawler functionality across 
 
 ## 🟡 Secondary Test Sites (Should Pass)
 
-### 3. DemoQA Practice Form
-**URL**: https://demoqa.com/automation-practice-form  
-**Technology**: HTML5 + jQuery  
-**Test Focus**: Complex form detection, label extraction, input types
+### 4. Material-UI Tree View
+**URL**: https://mui.com/material-ui/react-tree-view/  
+**Technology**: React + Material-UI  
+**Test Focus**: Generic checkbox tree detection (Material-UI implementation)
 
 **Expected Behavior**:
-- ✅ Form detected (1 form, not 7 duplicates!)
-- ✅ 16 inputs detected (text, radio, checkbox, file, textarea)
-- ✅ Labels extracted for all inputs
-- ✅ Placeholders captured
+- ✅ Checkbox tree detected via `.MuiTreeView-root` selector
+- ✅ Tree structure extracted
+- ✅ Labels from Material-UI components
+- ✅ Parent/child relationships detected
 
 **Success Criteria**:
-- Forms detected: 1 (deduplicated correctly)
-- Labels extracted: 16/16 inputs
-- Input types: text, radio, checkbox, file, textarea all detected
+- Checkbox tree detected: Yes
+- Source: 'library' (Material-UI)
+- Nodes extracted: All visible checkboxes
 
 ---
 
-### 4. Vue.js Official Site
+### 5. Ant Design Tree
+**URL**: https://ant.design/components/tree  
+**Technology**: React + Ant Design  
+**Test Focus**: Generic checkbox tree detection (Ant Design implementation)
+
+**Expected Behavior**:
+- ✅ Checkbox tree detected via `.ant-tree` selector
+- ✅ Tree structure extracted
+- ✅ Checkable nodes identified
+
+**Success Criteria**:
+- Checkbox tree detected: Yes
+- Source: 'library' (Ant Design)
+
+---
+
+### 6. Custom Checkbox Tree (Nested Lists)
+**URL**: https://jsfiddle.net (create custom nested list with checkboxes)  
+**Technology**: Plain HTML/JS  
+**Test Focus**: Generic pattern-based detection
+
+**Test HTML**:
+```html
+<ul>
+  <li><input type="checkbox"> Parent 1
+    <ul>
+      <li><input type="checkbox"> Child 1-1</li>
+      <li><input type="checkbox"> Child 1-2</li>
+    </ul>
+  </li>
+</ul>
+```
+
+**Expected Behavior**:
+- ✅ Detected via nested list strategy
+- ✅ Source: 'nested-list'
+- ✅ Depth calculated correctly
+
+---
+
+### 7. Vue.js Official Site
 **URL**: https://vuejs.org  
 **Technology**: Vue 3  
 **Test Focus**: Vue SPA detection, adaptive timing

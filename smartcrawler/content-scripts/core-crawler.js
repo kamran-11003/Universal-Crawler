@@ -26,6 +26,7 @@ class AutoTestAICrawler {
     
     // NEW: Enhanced features
     this.useDeepLinkExtraction = true; // Enable deep link discovery
+    this.deepLinkExtractionCompleted = false; // Track if deep link extraction already ran
     this.humanBehaviorSimulator = window.HumanBehaviorSimulator ? new window.HumanBehaviorSimulator() : null;
     this.securityChallengeHandler = window.securityChallengeHandler || null; // Initialized by module
     
@@ -989,11 +990,12 @@ class AutoTestAICrawler {
         currentRole: this.currentRole,
         maxDepth: this.maxDepth,
         linkQueue: this.linkQueue, // Save the link queue
-        normalizedUrls: Array.from(this.normalizedUrls) // Save normalized URLs
+        normalizedUrls: Array.from(this.normalizedUrls), // Save normalized URLs
+        deepLinkExtractionCompleted: this.deepLinkExtractionCompleted // CRITICAL: Save flag to prevent re-running
       };
       
       await chrome.storage.local.set({ crawlerState: state });
-      console.log('✅ Crawler state saved with', this.normalizedUrls.size, 'normalized URLs');
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `✅ State saved - URLs: ${this.normalizedUrls.size}, Queue: ${this.linkQueue.length}, DeepLinkDone: ${this.deepLinkExtractionCompleted}`});
       return true;
     } catch (error) {
       console.error('❌ Error saving crawler state:', error);
@@ -1019,15 +1021,9 @@ class AutoTestAICrawler {
         this.maxDepth = state.maxDepth;
         this.linkQueue = state.linkQueue || []; // Restore the link queue
         this.normalizedUrls = new Set(state.normalizedUrls || []); // Restore normalized URLs
+        this.deepLinkExtractionCompleted = state.deepLinkExtractionCompleted || false; // CRITICAL: Restore flag
         
-        console.log('✅ Crawler state restored:', {
-          nodes: state.graph.nodes?.length || 0,
-          edges: state.graph.edges?.length || 0,
-          visited: this.visited.size,
-          depth: this.currentDepth,
-          queuedLinks: this.linkQueue.length,
-          normalizedUrls: this.normalizedUrls.size
-        });
+        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `✅ State restored - Nodes: ${state.graph.nodes?.length || 0}, Edges: ${state.graph.edges?.length || 0}, Queue: ${this.linkQueue.length}, DeepLinkDone: ${this.deepLinkExtractionCompleted}`});
         return true;
       }
       console.log('⚠️ No crawler state found to restore');
@@ -1049,183 +1045,109 @@ class AutoTestAICrawler {
   // Enhanced breadth-first crawl with robust URL processing
   async breadthFirstCrawl(startHash, depth = 0) {
     try {
-      console.log(`🚀 ENTRY: breadthFirstCrawl called with hash=${startHash}, depth=${depth}`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🚀 ENTRY: breadthFirstCrawl called with hash=${startHash}, depth=${depth}`});
+      console.log(`🚀 breadthFirstCrawl: Starting from hash ${startHash} at depth ${depth}/${this.maxDepth}`);
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🚀 breadthFirstCrawl: depth=${depth}/${this.maxDepth}`});
       
-      // NEW: Simulate human behavior to evade bot detection
+      // Simulate human behavior to evade bot detection
       if (this.humanBehaviorSimulator && depth > 0) {
-        console.log('🤖→👤 Simulating human behavior before crawling...');
         await this.humanBehaviorSimulator.simulateHumanBehavior();
       }
       
-      console.log(`🔍 breadthFirstCrawl: Starting from hash ${startHash} at depth=${depth}/${this.maxDepth}`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Starting from hash ${startHash} at depth=${depth}/${this.maxDepth}`});
-      
-      console.log(`🔍 breadthFirstCrawl: Step 1 - Starting method`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 1 - Starting method`});
-      
-      console.log(`🔍 breadthFirstCrawl: Step 1.1 - About to update current depth`);
-      
       // Update current depth
       this.currentDepth = depth;
-      console.log(`📊 Current depth updated to: ${this.currentDepth}`);
-      console.log(`🔍 breadthFirstCrawl: Step 2 - Depth updated`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 2 - Depth updated`});
-      
-      console.log(`🔍 breadthFirstCrawl: Step 2.1 - About to check depth: depth=${depth}, maxDepth=${this.maxDepth}`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 2.1 - About to check depth: depth=${depth}, maxDepth=${this.maxDepth}`});
       
       // Check if we've reached max depth
       if (depth >= this.maxDepth) {
-        console.log('🏁 breadthFirstCrawl: Reached maximum depth, stopping');
-        console.log(`🚨 MAX_DEPTH: breadthFirstCrawl calling sendResults due to max depth`);
-        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🚨 MAX_DEPTH: breadthFirstCrawl calling sendResults due to max depth`});
+        console.log('🏁 Reached maximum depth');
+        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: '🏁 Reached max depth, completing crawl'});
         this.sendResults();
         return;
       }
-      console.log(`🔍 breadthFirstCrawl: Step 3 - Depth check passed`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 3 - Depth check passed`});
-      
-      console.log(`🔍 breadthFirstCrawl: Step 3.1 - About to get node for hash: ${startHash}`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 3.1 - About to get node for hash: ${startHash}`});
       
       // Get the current node
-      console.log(`🔍 breadthFirstCrawl: Step 4 - Getting node for hash: ${startHash}`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 4 - Getting node for hash: ${startHash}`});
-      
-      console.log(`🔍 breadthFirstCrawl: Step 4.1 - About to call this.graph.getNode()`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 4.1 - About to call this.graph.getNode()`});
-      
       const node = this.graph.getNode(startHash);
-      console.log(`🔍 breadthFirstCrawl: Step 5 - Node retrieved:`, node ? 'SUCCESS' : 'FAILED');
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 5 - Node retrieved: ${node ? 'SUCCESS' : 'FAILED'}`});
-      
       if (!node) {
-        console.error('❌ breadthFirstCrawl: Node not found for hash', startHash);
-        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `❌ breadthFirstCrawl: Node not found for hash ${startHash}`});
-        console.log(`🚨 NO_NODE: breadthFirstCrawl calling sendResults due to node not found`);
+        console.error('❌ Node not found for hash', startHash);
+        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `❌ Node not found: ${startHash}`});
         this.sendResults();
         return;
       }
       
-      console.log(`🔍 breadthFirstCrawl: Step 5.1 - About to access node.data.url`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 5.1 - About to access node.data.url`});
+      console.log(`✅ Processing: ${node.data ? node.data.url : 'NO DATA'}`);
       
-      console.log(`✅ breadthFirstCrawl: Node found - ${node.data ? node.data.url : 'NO DATA'}`);
-      console.log(`🔍 breadthFirstCrawl: Step 6 - Node data retrieved`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 6 - Node data retrieved`});
-      
-      // Extract links directly from the current page DOM instead of relying on stored links
-      console.log(`🔍 breadthFirstCrawl: Step 7 - Extracting links from current page`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 7 - Extracting links from current page`});
-      
-      console.log(`🔍 breadthFirstCrawl: Step 7.1 - About to call this.extractLinksFromCurrentPage()`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 7.1 - About to call this.extractLinksFromCurrentPage()`});
-      
+      // Extract links from current page
       const currentLinks = await this.extractLinksFromCurrentPage();
-      console.log(`🔗 breadthFirstCrawl: Found ${currentLinks.length} links on current page`);
-      console.log(`🔍 breadthFirstCrawl: Step 8 - Links extracted`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 8 - Links extracted`});
+      console.log(`🔗 Found ${currentLinks.length} links on page`);
       
-      // NEW: Test interactive elements on this page
-      await this.testInteractiveElements();
+      // Test interactive elements (with timeout protection)
+      try {
+        await Promise.race([
+          this.testInteractiveElements(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 30000))
+        ]);
+      } catch (interactiveError) {
+        console.warn('⚠️ Interactive testing skipped:', interactiveError.message);
+      }
       
       // Process links and add to queue
-      console.log(`🔍 breadthFirstCrawl: Step 9 - Processing and filtering links`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 9 - About to call filterAndQueueLinks with ${currentLinks.length} links`});
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Current queue size BEFORE filterAndQueueLinks: ${this.linkQueue.length}`});
       const validLinks = this.filterAndQueueLinks(currentLinks, node.data.url);
-      console.log(`📋 breadthFirstCrawl: Added ${validLinks.length} valid links to queue`);
-      console.log(`🔍 breadthFirstCrawl: Step 10 - Links processed`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 10 - filterAndQueueLinks returned ${validLinks.length} valid links`});
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 10 - filterAndQueueLinks returned ${validLinks.length} valid links`});
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Current queue size AFTER filterAndQueueLinks: ${this.linkQueue.length}`});
+      console.log(`📋 Added ${validLinks.length} valid links to queue (total: ${this.linkQueue.length})`);
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `� Queue: ${this.linkQueue.length} links`});
       
       // If no valid links found, check queue
       if (validLinks.length === 0) {
-        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `⚠️ breadthFirstCrawl: No valid links from filterAndQueueLinks, checking queue`});
-        console.log(`⚠️ breadthFirstCrawl: No valid links found, checking queue`);
-        console.log(`🔍 breadthFirstCrawl: Step 11 - No valid links, checking queue`);
         if (this.linkQueue.length > 0) {
-          chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `📋 breadthFirstCrawl: Processing ${this.linkQueue.length} queued links`});
-          console.log(`📋 breadthFirstCrawl: Processing ${this.linkQueue.length} queued links`);
+          console.log(`📋 Processing queue: ${this.linkQueue.length} links`);
           await this.processNextQueuedLink();
         } else {
-          chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🏁 breadthFirstCrawl: No links and no queue, finishing`});
-          console.log(`🏁 breadthFirstCrawl: No links and no queue, finishing`);
-          console.log(`🚨 NO_LINKS_NO_QUEUE: breadthFirstCrawl calling sendResults due to no links and no queue`);
+          console.log(`🏁 No more links, crawl complete`);
+          chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: '🏁 Crawl complete'});
           this.sendResults();
         }
         return;
       }
-      console.log(`🔍 breadthFirstCrawl: Step 12 - Links processed and added to queue`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 breadthFirstCrawl: Step 12 - validLinks.length was ${validLinks.length}, continuing...`});
       
-      // CRITICAL FIX: Always process from queue (not from validLinks array)
-      // This ensures BFS order is maintained and all queued links are visited
+      // Always process from queue (ensures BFS order)
       if (this.linkQueue.length > 0) {
-        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔄 breadthFirstCrawl: Processing next link from queue (${this.linkQueue.length} links queued)`});
-        console.log(`🔄 breadthFirstCrawl: Processing next link from queue (${this.linkQueue.length} links queued)`);
+        console.log(`🔄 Processing queue: ${this.linkQueue.length} links remaining`);
         await this.processNextQueuedLink();
       } else {
-        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🏁 breadthFirstCrawl: No more links in queue, finishing`});
-        console.log(`🏁 breadthFirstCrawl: No more links in queue, finishing`);
-        console.log(`🚨 NO_MORE_LINKS: breadthFirstCrawl calling sendResults due to empty queue`);
+        console.log(`🏁 Queue empty, crawl complete`);
+        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: '🏁 Crawl complete'});
         this.sendResults();
       }
     
     } catch (error) {
-      console.error('❌ breadthFirstCrawl: Error occurred:', error);
-      console.error('❌ breadthFirstCrawl: Error stack:', error.stack);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `❌ breadthFirstCrawl: Error occurred: ${error.message}`});
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `❌ breadthFirstCrawl: Error stack: ${error.stack}`});
-      console.log(`🚨 ERROR: breadthFirstCrawl calling sendResults due to error`);
+      console.error('❌ Crawl error:', error.message);
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `❌ Error: ${error.message}`});
       this.sendResults();
     }
   }
   
   // Extract links directly from current page DOM
   async extractLinksFromCurrentPage() {
-    chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: METHOD ENTRY - Starting...`});
-    console.log(`🔍 extractLinksFromCurrentPage: METHOD ENTRY - Starting...`);
     try {
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: INSIDE TRY BLOCK`});
-      console.log(`🔍 extractLinksFromCurrentPage: INSIDE TRY BLOCK`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: Starting ENHANCED link extraction`});
-      console.log(`🔍 extractLinksFromCurrentPage: Starting ENHANCED link extraction with Deep Link Extractor`);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: Current URL: ${window.location.href}`});
-      console.log(`🔍 extractLinksFromCurrentPage: Current URL: ${window.location.href}`);
-      
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: Creating allLinks array`});
+      console.log(`🔍 Extracting links from: ${window.location.href}`);
       const allLinks = [];
       
-      // 1. Extract regular DOM links (with Shadow DOM support)
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: Checking ShadowDOMHelper: ${typeof window.ShadowDOMHelper}`});
+      // Extract regular DOM links (with Shadow DOM support)
       if (window.ShadowDOMHelper) {
         try {
-          chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: Calling ShadowDOMHelper.getAllLinks()...`});
           const shadowDOMLinks = window.ShadowDOMHelper.getAllLinks();
-          chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `👻 Found ${shadowDOMLinks.length} links including Shadow DOM`});
-          console.log(`👻 Found ${shadowDOMLinks.length} links including Shadow DOM`);
+          console.log(`👻 Found ${shadowDOMLinks.length} links (including Shadow DOM)`);
           allLinks.push(...shadowDOMLinks);
         } catch (shadowError) {
-          chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `❌ ShadowDOMHelper error: ${shadowError.message}`});
-          console.error('ShadowDOMHelper.getAllLinks() failed:', shadowError);
-          // Fallback to regular query
+          console.error('Shadow DOM extraction failed:', shadowError.message);
           const regularLinks = document.querySelectorAll('a[href]');
           allLinks.push(...Array.from(regularLinks));
         }
       } else {
-        // Fallback to regular query
         const regularLinks = document.querySelectorAll('a[href]');
         allLinks.push(...Array.from(regularLinks));
       }
       
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: Found ${allLinks.length} anchor elements (including Shadow DOM)`});
-      
       const currentUrl = window.location.href;
       const currentUrlObj = new URL(currentUrl);
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: Filtering links...`});
       
       const links = Array.from(allLinks)
         .map(link => ({
@@ -1262,11 +1184,14 @@ class AutoTestAICrawler {
         });
       
       chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: Filtered to ${links.length} valid links`});
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 PRE-CHECK: window.DeepLinkExtractor=${typeof window.DeepLinkExtractor}, useDeepLinkExtraction=${this.useDeepLinkExtraction}`});
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 PRE-CHECK: window.DeepLinkExtractor=${typeof window.DeepLinkExtractor}, useDeepLinkExtraction=${this.useDeepLinkExtraction}, deepLinkExtractionCompleted=${this.deepLinkExtractionCompleted}`});
       
-      // 2. ENHANCED: Use Deep Link Extractor for hidden/dynamic links
-      if (window.DeepLinkExtractor && this.useDeepLinkExtraction) {
-        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 Using Deep Link Extractor for comprehensive discovery...`});
+      // 2. ENHANCED: Use Deep Link Extractor for hidden/dynamic links (ONLY ONCE on first page)
+      if (window.DeepLinkExtractor && this.useDeepLinkExtraction && !this.deepLinkExtractionCompleted) {
+        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 Using Deep Link Extractor for comprehensive discovery (FIRST TIME ONLY)...`});
+        
+        // Mark as completed to prevent running again
+        this.deepLinkExtractionCompleted = true;
         
         // WAIT for deep link extraction to complete (critical for page discovery)
         try {
@@ -1276,6 +1201,7 @@ class AutoTestAICrawler {
           chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🎯 Deep Link Extractor found ${deepLinks.length} total links`});
           
           // Add these to the queue directly
+          let addedCount = 0;
           deepLinks.forEach(deepLink => {
             try {
               const url = new URL(deepLink.href);
@@ -1301,6 +1227,7 @@ class AutoTestAICrawler {
                     hash: linkHash,
                     source: deepLink.source || 'deep-extraction'
                   });
+                  addedCount++;
                   // DON'T add to normalizedUrls here - only add when actually visiting
                 }
               }
@@ -1309,10 +1236,16 @@ class AutoTestAICrawler {
             }
           });
           
-          chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `✅ Added deep-extracted links to queue. New queue size: ${this.linkQueue.length}`});
+          chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `✅ Deep Link Extractor added ${addedCount}/${deepLinks.length} new links to queue. New queue size: ${this.linkQueue.length}`});
+          
+          // CRITICAL: Save state immediately after adding links to preserve queue
+          await this.saveState();
+          chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `💾 State saved after Deep Link Extractor - Queue: ${this.linkQueue.length}, DeepLinkDone: ${this.deepLinkExtractionCompleted}`});
         } catch (error) {
           chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `⚠️ Deep Link Extractor failed: ${error.message}`});
         }
+      } else if (this.deepLinkExtractionCompleted) {
+        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `⏭️ Skipping Deep Link Extractor (already ran on first page)`});
       }
       
       chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 extractLinksFromCurrentPage: Found ${links.length} valid HTTP links on page (after filtering)`});
@@ -1328,53 +1261,38 @@ class AutoTestAICrawler {
   // Filter links and add valid ones to queue
   filterAndQueueLinks(links, currentUrl) {
     try {
-      console.log(`🔍 filterAndQueueLinks: Starting with ${links.length} links`);
-      console.log(`🔍 filterAndQueueLinks: links type = ${typeof links}, is array = ${Array.isArray(links)}`);
-      console.log(`🔍 filterAndQueueLinks: Current URL: ${currentUrl}`);
-      console.log(`🔍 filterAndQueueLinks: Current URL type = ${typeof currentUrl}`);
-      
-      console.log(`🔍 filterAndQueueLinks: Step 1 - About to create URL objects`);
+      console.log(`🔍 Filtering ${links.length} links from ${currentUrl}`);
       const validLinks = [];
-      console.log(`🔍 filterAndQueueLinks: Step 2 - validLinks array created`);
       const currentOrigin = new URL(currentUrl).origin;
-      console.log(`🔍 filterAndQueueLinks: Step 3 - currentOrigin = ${currentOrigin}`);
       const currentUrlObj = new URL(currentUrl);
-      console.log(`🔍 filterAndQueueLinks: Step 4 - currentUrlObj created`);
-      console.log(`🔍 filterAndQueueLinks: Current origin: ${currentOrigin}`);
     
-    let processedCount = 0;
     let externalCount = 0;
     let duplicateCount = 0;
     let anchorCount = 0;
     let samePageCount = 0;
-    let validCount = 0;
     
     links.forEach(link => {
       try {
-        processedCount++;
         const linkUrl = new URL(link.href);
         
         // Only process same-origin links
         if (linkUrl.origin !== currentOrigin) {
           externalCount++;
-          console.log(`🚫 Skipping external link: ${link.href}`);
           return;
         }
         
-        // CRITICAL FIX: Filter out anchor links (same page with hash fragments)
+        // Filter out anchor links (same page with hash fragments)
         if (linkUrl.pathname === currentUrlObj.pathname && 
             linkUrl.search === currentUrlObj.search && 
             linkUrl.hash !== '') {
           anchorCount++;
-          console.log(`🚫 Skipping anchor link: ${link.href} (same page with hash)`);
           return;
         }
         
-        // CRITICAL FIX: Filter out same page links (ignoring hash)
+        // Filter out same page links (ignoring hash)
         if (linkUrl.pathname === currentUrlObj.pathname && 
             linkUrl.search === currentUrlObj.search) {
           samePageCount++;
-          console.log(`🚫 Skipping same page link: ${link.href} (same path and query)`);
           return;
         }
         
@@ -1421,83 +1339,62 @@ class AutoTestAICrawler {
           hash: linkHash
         });
         
-        this.normalizedUrls.add(normalizedUrl);
+        // Don't add to normalizedUrls yet - only add when actually visiting in processNextQueuedLink
+        // this.normalizedUrls.add(normalizedUrl);
         validLinks.push(link);
-        validCount++;
-        console.log(`✅ Added valid link to queue: ${link.href}`);
         
       } catch (error) {
-        console.log(`🚫 Invalid link (error): ${link.href} - ${error.message}`);
+        // Invalid link, skip
       }
     });
     
-    console.log(`🔍 filterAndQueueLinks: Summary - Processed: ${processedCount}, External: ${externalCount}, Anchors: ${anchorCount}, SamePage: ${samePageCount}, Duplicates: ${duplicateCount}, Valid: ${validCount}`);
-    console.log(`🔍 filterAndQueueLinks: Queue size now: ${this.linkQueue.length}`);
+    console.log(`� Filter results: ${validLinks.length} valid, ${duplicateCount} duplicates, ${externalCount} external`);
+    console.log(`� Queue size: ${this.linkQueue.length}`);
     
     return validLinks;
     } catch (error) {
-      console.error(`❌ filterAndQueueLinks: Error:`, error);
-      console.error(`❌ filterAndQueueLinks: Error stack:`, error.stack);
+      console.error(`❌ Filter error:`, error.message);
       return [];
     }
   }
   
   // Process the next queued link
   async processNextQueuedLink() {
-    chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 processNextQueuedLink: Entry - queue size: ${this.linkQueue.length}`});
-    
     if (this.linkQueue.length === 0) {
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🏁 processNextQueuedLink: No more queued links, crawl complete`});
-      console.log('🏁 No more queued links, crawl complete');
+      console.log('🏁 Queue empty, crawl complete');
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: '🏁 Crawl complete'});
       this.sendResults();
       return;
     }
     
-    const nextLink = this.linkQueue.shift(); // Get and remove first item
-    chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 processNextQueuedLink: Shifted link from queue - URL: ${nextLink.url}, depth: ${nextLink.depth}, maxDepth: ${this.maxDepth}`});
-    chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔍 processNextQueuedLink: Shifted link from queue - URL: ${nextLink.url}, depth: ${nextLink.depth}, maxDepth: ${this.maxDepth}`});
+    const nextLink = this.linkQueue.shift();
     
     // Check if we've reached max depth
     if (nextLink.depth >= this.maxDepth) {
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🏁 processNextQueuedLink: Reached maximum depth (${nextLink.depth}/${this.maxDepth}), stopping crawl`});
-      console.log(`🏁 Reached maximum depth (${nextLink.depth}/${this.maxDepth}), stopping crawl`);
+      console.log(`🏁 Max depth reached (${nextLink.depth}/${this.maxDepth})`);
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: '🏁 Max depth reached'});
       this.sendResults();
       return;
     }
     
-    chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔄 processNextQueuedLink: Processing link at depth ${nextLink.depth}/${this.maxDepth}: ${nextLink.url}`});
-    console.log(`🔄 Processing queued link at depth ${nextLink.depth}/${this.maxDepth}: ${nextLink.url}`);
+    console.log(`🔄 Processing: ${nextLink.url} (depth ${nextLink.depth}, queue: ${this.linkQueue.length})`);
     
     // Check for duplicates BEFORE navigation
     const normalizedUrl = this.normalizeUrl(nextLink.url);
-    let isDuplicate = false;
-    
-    console.log(`🔍 Checking queued link for duplicates: ${normalizedUrl}`);
-    console.log(`📋 Current normalized URLs:`, Array.from(this.normalizedUrls));
     
     for (const visitedUrl of this.normalizedUrls) {
       if (this.isSamePage(normalizedUrl, visitedUrl)) {
-        console.log(`🚫 Skipping duplicate queued link: ${nextLink.url} (matches ${visitedUrl})`);
-        isDuplicate = true;
-        break;
+        console.log(`🚫 Duplicate detected, skipping: ${nextLink.url}`);
+        await this.processNextQueuedLink();
+        return;
       }
     }
     
-    if (isDuplicate) {
-      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🔄 processNextQueuedLink: Skipping duplicate, recursing...`});
-      console.log(`🔄 Skipping duplicate queued link, processing next...`);
-      // Skip this link and continue with next queued link
-      await this.processNextQueuedLink();
-      return;
-    }
-    
-    // Mark as visited and track normalized URL
+    // Mark as visited
     this.visited.add(nextLink.hash);
     this.normalizedUrls.add(normalizedUrl);
-    chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `✅ processNextQueuedLink: URL tracked, sending NAVIGATE_AND_CRAWL message`});
-    console.log(`✅ Normalized URL tracked: ${normalizedUrl}`);
     
-    // Send navigation request to background script
+    // Navigate to the link
     chrome.runtime.sendMessage({
       type: 'NAVIGATE_AND_CRAWL',
       url: nextLink.url,
@@ -1762,11 +1659,12 @@ class AutoTestAICrawler {
         currentRole: this.currentRole,
         maxDepth: this.maxDepth,
         linkQueue: this.linkQueue, // Save the link queue
-        normalizedUrls: Array.from(this.normalizedUrls) // Save normalized URLs
+        normalizedUrls: Array.from(this.normalizedUrls), // Save normalized URLs
+        deepLinkExtractionCompleted: this.deepLinkExtractionCompleted // CRITICAL: Save flag to prevent re-running
       };
       
       await chrome.storage.local.set({ crawlerState: state });
-      console.log('✅ Crawler state saved with', this.normalizedUrls.size, 'normalized URLs and', this.linkQueue.length, 'queued links');
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `✅ State saved - URLs: ${this.normalizedUrls.size}, Queue: ${this.linkQueue.length}, DeepLinkDone: ${this.deepLinkExtractionCompleted}`});
       return true;
     } catch (error) {
       console.error('❌ Failed to save crawler state:', error);
@@ -1800,15 +1698,9 @@ class AutoTestAICrawler {
       // Restore link queue and normalized URLs
       this.linkQueue = state.linkQueue || []; // Restore the link queue
       this.normalizedUrls = new Set(state.normalizedUrls || []); // Restore normalized URLs
+      this.deepLinkExtractionCompleted = state.deepLinkExtractionCompleted || false; // CRITICAL: Restore flag
       
-      console.log('✅ Crawler state restored:', {
-        nodes: state.graph.nodes?.length || 0,
-        edges: state.graph.edges?.length || 0,
-        visited: this.visited.size,
-        depth: this.currentDepth,
-        queuedLinks: this.linkQueue.length,
-        normalizedUrls: this.normalizedUrls.size
-      });
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `✅ State restored - Nodes: ${state.graph.nodes?.length || 0}, Edges: ${state.graph.edges?.length || 0}, Queue: ${this.linkQueue.length}, DeepLinkDone: ${this.deepLinkExtractionCompleted}`});
       
       return true;
     } catch (error) {

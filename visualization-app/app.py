@@ -73,6 +73,15 @@ def main():
             )
             
             show_simulated = st.checkbox("Show Simulated Nodes", value=True)
+            
+            # Interactive Elements Filter
+            st.subheader("Interactive Elements")
+            interactive_filter = st.multiselect(
+                "Filter by Element Type",
+                ["Buttons", "Checkboxes", "Dropdowns", "Draggables", "Resizables", "Selectables", "Sortables"],
+                default=["Buttons", "Checkboxes", "Dropdowns", "Draggables", "Resizables", "Selectables", "Sortables"],
+                help="Filter nodes by interactive elements found on the page"
+            )
     
     # Main content area
     if uploaded_file is not None:
@@ -112,8 +121,34 @@ def main():
                     node_role = n.get('role', 'guest')
                     is_simulated = n.get('simulated', False)
                     
-                    if node_role in role_filter and (show_simulated or not is_simulated):
-                        filtered_nodes.append(n)
+                    # Check role and simulated filters
+                    if node_role not in role_filter or (not show_simulated and is_simulated):
+                        continue
+                    
+                    # Check interactive elements filter
+                    if interactive_filter:
+                        interactive_elements = n.get('interactiveElements', {})
+                        has_selected_elements = False
+                        
+                        for element_type in interactive_filter:
+                            element_key = element_type.lower()  # Convert to lowercase
+                            element_data = interactive_elements.get(element_key, {})
+                            
+                            # Check if this element type has any items
+                            if isinstance(element_data, dict):
+                                total = element_data.get('total', 0)
+                                if total > 0:
+                                    has_selected_elements = True
+                                    break
+                            elif isinstance(element_data, list) and len(element_data) > 0:
+                                has_selected_elements = True
+                                break
+                        
+                        # If interactive filter is active and node doesn't have any selected elements, skip it
+                        if not has_selected_elements and len(interactive_filter) < 7:  # Only filter if not all selected
+                            continue
+                    
+                    filtered_nodes.append(n)
                 except Exception:
                     continue
             

@@ -24,10 +24,11 @@ class UniversalFormHandler {
         () => this.detectContainerForms(),
         () => this.detectInputClusters(),
         () => this.detectEventDrivenForms(),
+        () => this.detectCheckboxTrees(),
         () => this.detectAIForms()
       ];
       
-      const strategyNames = ['Semantic', 'Container', 'Input Cluster', 'Event Driven', 'AI Powered'];
+      const strategyNames = ['Semantic', 'Container', 'Input Cluster', 'Event Driven', 'Checkbox Tree', 'AI Powered'];
       const allForms = [];
       
       strategies.forEach((strategy, index) => {
@@ -154,6 +155,231 @@ class UniversalFormHandler {
       chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `Error in detectEventDrivenForms: ${error.message}`});
       return [];
     }
+  }
+  
+  // 🌲 Universal Checkbox Tree Detection (works with ANY implementation)
+  detectCheckboxTrees() {
+    try {
+      const forms = [];
+      const foundTrees = [];
+      
+      // DEBUG: Check total checkboxes on page
+      const allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🌲 DEBUG: Found ${allCheckboxes.length} total checkboxes on page`});
+      
+      // Strategy 1: Known library classes (react-checkbox-tree, vue-treeselect, Material-UI, Ant Design)
+      const librarySelectors = [
+        '.react-checkbox-tree', '.rct-icons-fa4', '.check-box-tree-wrapper',
+        '.vue-treeselect', '.ant-tree', '.MuiTreeView-root',
+        '[class*="checkbox-tree"]', '[class*="tree-view"]'
+      ];
+      
+      let libraryFound = 0;
+      librarySelectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+          const checkboxes = el.querySelectorAll('input[type="checkbox"]');
+          if (checkboxes.length >= 2 && !foundTrees.some(t => t.element === el)) {
+            foundTrees.push({ element: el, checkboxes: Array.from(checkboxes), source: 'library' });
+            libraryFound++;
+          }
+        });
+      });
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🌲 Strategy 1 (Library): Found ${libraryFound} trees`});
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🌲 Strategy 1 (Library): Found ${libraryFound} trees`});
+      
+      // Strategy 2: ARIA tree roles (accessible implementations)
+      const ariaTrees = document.querySelectorAll('[role="tree"]');
+      let ariaFound = 0;
+      ariaTrees.forEach(tree => {
+        const checkboxes = tree.querySelectorAll('[role="treeitem"] input[type="checkbox"], input[type="checkbox"][role="checkbox"]');
+        if (checkboxes.length >= 2 && !foundTrees.some(t => t.element === tree)) {
+          foundTrees.push({ element: tree, checkboxes: Array.from(checkboxes), source: 'aria' });
+          ariaFound++;
+        }
+      });
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🌲 Strategy 2 (ARIA): Found ${ariaFound} trees (${ariaTrees.length} [role="tree"] elements)`});
+      
+      // Strategy 3: Nested lists with checkboxes (generic pattern - ul/ol inside ul/ol)
+      const nestedLists = document.querySelectorAll('ul ul input[type="checkbox"], ol ol input[type="checkbox"]');
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🌲 Strategy 3 (Nested): Found ${nestedLists.length} checkboxes in nested lists`});
+      const processedParents = new Set();
+      let nestedFound = 0;
+      nestedLists.forEach(checkbox => {
+        const parent = checkbox.closest('ul, ol');
+        if (parent && !processedParents.has(parent)) {
+          const allCheckboxes = parent.querySelectorAll('input[type="checkbox"]');
+          if (allCheckboxes.length >= 2 && !foundTrees.some(t => t.element === parent)) {
+            foundTrees.push({ element: parent, checkboxes: Array.from(allCheckboxes), source: 'nested-list' });
+            processedParents.add(parent);
+            nestedFound++;
+          }
+        }
+      });
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🌲 Strategy 3 (Nested): Extracted ${nestedFound} unique trees`});
+      
+      // Strategy 4: Expandable groups (has toggle buttons + nested checkboxes)
+      const expandButtons = document.querySelectorAll('button[aria-expanded], button[class*="expand"], button[class*="collapse"], button[class*="toggle"]');
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🌲 Strategy 4 (Expandable): Found ${expandButtons.length} expand buttons`});
+      let expandableFound = 0;
+      expandButtons.forEach(button => {
+        const container = button.closest('div, li, section');
+        if (container) {
+          const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+          if (checkboxes.length >= 2 && !foundTrees.some(t => t.element === container || container.contains(t.element))) {
+            foundTrees.push({ element: container, checkboxes: Array.from(checkboxes), source: 'expandable' });
+            expandableFound++;
+          }
+        }
+      });
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🌲 Strategy 4 (Expandable): Extracted ${expandableFound} trees`});
+      
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `🌲 Found ${foundTrees.length} checkbox trees using all strategies`});
+      
+      // Convert each found tree into a form structure
+      foundTrees.forEach(tree => {
+        const structure = this.extractCheckboxTreeStructure(tree.element);
+        forms.push({
+          element: tree.element,
+          type: 'checkbox-tree',
+          source: tree.source,
+          confidence: 0.92,
+          analysis: {
+            ...this.analyzeFormStructure(tree.element),
+            treeStructure: structure,
+            totalCheckboxes: tree.checkboxes.length,
+            expandableNodes: tree.element.querySelectorAll('[aria-expanded], [class*="expand"], [class*="collapse"]').length
+          }
+        });
+      });
+      
+      if (forms.length > 0) {
+        chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `✅ Checkbox Tree: Detected ${forms.length} trees with ${foundTrees.reduce((sum, t) => sum + t.checkboxes.length, 0)} total checkboxes`});
+      }
+      
+      return forms;
+    } catch (error) {
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `❌ Checkbox Tree detection error: ${error.message}`});
+      return [];
+    }
+  }
+  
+  // 📦 Extract Checkbox Tree Structure (works with any tree implementation)
+  extractCheckboxTreeStructure(treeElement) {
+    const structure = {
+      nodes: [],
+      totalLeaves: 0,
+      totalParents: 0,
+      maxDepth: 0
+    };
+    
+    try {
+      // Find all checkboxes in the tree
+      const checkboxes = treeElement.querySelectorAll('input[type="checkbox"]');
+      
+      checkboxes.forEach(checkbox => {
+        // Try multiple ways to get the label
+        let label = '';
+        
+        // Method 1: Explicit label with for attribute
+        if (checkbox.id) {
+          const labelEl = treeElement.querySelector(`label[for="${checkbox.id}"]`);
+          if (labelEl) label = labelEl.textContent.trim();
+        }
+        
+        // Method 2: Parent label
+        if (!label) {
+          const parentLabel = checkbox.closest('label');
+          if (parentLabel) {
+            const clone = parentLabel.cloneNode(true);
+            const inputs = clone.querySelectorAll('input');
+            inputs.forEach(inp => inp.remove());
+            label = clone.textContent.trim();
+          }
+        }
+        
+        // Method 3: Sibling text nodes
+        if (!label) {
+          const parent = checkbox.parentElement;
+          if (parent) {
+            const clone = parent.cloneNode(true);
+            const inputs = clone.querySelectorAll('input, button, svg');
+            inputs.forEach(inp => inp.remove());
+            label = clone.textContent.trim();
+          }
+        }
+        
+        // Method 4: ARIA label
+        if (!label) {
+          label = checkbox.getAttribute('aria-label') || checkbox.getAttribute('title') || 'Unnamed';
+        }
+        
+        // Determine if this is a parent node (has nested checkboxes)
+        const container = checkbox.closest('li, div[role="treeitem"], [class*="node"]');
+        let isParent = false;
+        if (container) {
+          const nestedCheckboxes = container.querySelectorAll('ul input[type="checkbox"], ol input[type="checkbox"], [class*="children"] input[type="checkbox"]');
+          isParent = nestedCheckboxes.length > 0;
+        }
+        
+        // Check if expanded (multiple ways)
+        const isExpanded = 
+          checkbox.getAttribute('aria-expanded') === 'true' ||
+          container?.classList.contains('expanded') ||
+          container?.classList.contains('open') ||
+          container?.querySelector('[aria-expanded="true"]') !== null;
+        
+        const depth = this.getNodeDepth(checkbox);
+        
+        structure.nodes.push({
+          id: checkbox.id || `checkbox_${structure.nodes.length}`,
+          label: label,
+          checked: checkbox.checked,
+          indeterminate: checkbox.indeterminate,
+          isParent: isParent,
+          isExpanded: isExpanded,
+          depth: depth
+        });
+        
+        if (isParent) {
+          structure.totalParents++;
+        } else {
+          structure.totalLeaves++;
+        }
+        
+        if (depth > structure.maxDepth) {
+          structure.maxDepth = depth;
+        }
+      });
+      
+      chrome.runtime.sendMessage({
+        type: 'DEBUG_LOG', 
+        message: `📊 Checkbox tree: ${structure.nodes.length} nodes, ${structure.totalLeaves} leaves, ${structure.totalParents} parents, depth ${structure.maxDepth}`
+      });
+    } catch (error) {
+      chrome.runtime.sendMessage({type: 'DEBUG_LOG', message: `❌ Tree extraction error: ${error.message}`});
+    }
+    
+    return structure;
+  }
+  
+  // 📏 Get Node Depth in Tree (works with any nesting structure)
+  getNodeDepth(element) {
+    let depth = 0;
+    let current = element;
+    
+    while (current && current !== document.body) {
+      // Count nesting levels based on various patterns
+      if (current.tagName === 'OL' || current.tagName === 'UL' ||
+          current.getAttribute('role') === 'group' ||
+          current.classList.contains('children') ||
+          current.classList.contains('nested')) {
+        depth++;
+      }
+      current = current.parentElement;
+    }
+    
+    return depth;
   }
   
   // 🤖 AI-Powered Form Detection
