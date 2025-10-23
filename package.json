@@ -1,0 +1,24 @@
+{
+  "name": "smartcrawler",
+  "version": "1.0.0",
+  "description": "Smart web crawler with 95%+ real page success rate - Multi-strategy navigation for Chrome extensions",
+  "author": "AutoTestAI",
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch",
+    "clean": "node -e \"require('fs').rmSync('smartcrawler/dist', {recursive: true, force: true})\""
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.0"
+  },
+  "keywords": [
+    "web-crawler",
+    "chrome-extension",
+    "automation",
+    "testing",
+    "react",
+    "spa"
+  ]
+}
+

@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "AutoTestAI Smart Crawler MVP",
+  "version": "1.0.0",
+  "description": "Smart web crawler with 95%+ real page success",
+  "permissions": ["offscreen", "activeTab", "scripting", "storage", "downloads", "cookies", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  }
+}

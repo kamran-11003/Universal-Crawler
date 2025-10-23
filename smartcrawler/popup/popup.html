@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>AutoTestAI Crawler</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>AutoTestAI Crawler</h1>
+    
+    <section class="auth-section">
+      <h2>Authentication Settings</h2>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableAuth"> Enable Authentication
+        </label>
+      </div>
+      
+      <div id="authConfig" style="display: none;">
+        <div class="role-section">
+          <h3>Guest Role</h3>
+          <p class="role-description">No credentials required</p>
+        </div>
+        
+        <div class="role-section">
+          <h3>User Role</h3>
+          <div class="input-group">
+            <input type="text" id="userUsername" placeholder="Username">
+            <input type="password" id="userPassword" placeholder="Password">
+            <button id="saveUserCreds" class="btn-small">Save</button>
+          </div>
+        </div>
+        
+        <div class="role-section">
+          <h3>Admin Role</h3>
+          <div class="input-group">
+            <input type="text" id="adminUsername" placeholder="Username">
+            <input type="password" id="adminPassword" placeholder="Password">
+            <button id="saveAdminCreds" class="btn-small">Save</button>
+          </div>
+        </div>
+        
+        <div class="role-selection">
+          <h3>Select Roles to Crawl</h3>
+          <label class="checkbox-label">
+            <input type="checkbox" id="crawlGuest" checked> Crawl as Guest
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="crawlUser"> Crawl as User
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="crawlAdmin"> Crawl as Admin
+          </label>
+        </div>
+      </div>
+    </section>
+    
+    <section class="quick-controls">
+      <h2>Quick Controls</h2>
+      <div class="quick-buttons">
+        <button id="selectAllBtn" class="btn-quick">Select All</button>
+        <button id="deselectAllBtn" class="btn-quick">Deselect All</button>
+        <button id="selectRecommendedBtn" class="btn-quick">Recommended</button>
+      </div>
+    </section>
+    
+    <section class="crawl-config-section">
+      <h2>Crawl Configuration</h2>
+      <div class="config-controls">
+        <div class="input-group">
+          <label for="maxDepth">Max Depth (1-50):</label>
+          <input type="number" id="maxDepth" min="1" max="50" value="10">
+        </div>
+        <div class="input-group">
+          <label for="maxLinksPerPage">Max Links Per Page:</label>
+          <input type="number" id="maxLinksPerPage" min="1" max="200" value="50">
+        </div>
+        <div class="input-group">
+          <label for="crawlStrategy">Crawl Strategy:</label>
+          <select id="crawlStrategy">
+            <option value="auto">Auto (Multi-Strategy)</option>
+            <option value="iframe-only">Iframe Only</option>
+            <option value="navigation-only">Navigation Only</option>
+            <option value="synthetic-only">Synthetic Only (Fast)</option>
+          </select>
+        </div>
+      </div>
+    </section>
+    
+    <section class="module-section">
+      <h2>Advanced Modules</h2>
+      <div class="module-controls">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableSPA"> SPA Navigation Detection
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableModal"> Modal & Popup Detection
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enablePerformance"> Performance Monitoring
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableAccessibility"> Accessibility Analysis
+        </label>
+      </div>
+    </section>
+
+    <section class="module-section">
+      <h2>Network & Storage Analysis</h2>
+      <div class="module-controls">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableNetwork"> Network Monitoring
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableStorage"> Storage Analysis
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableWebSocket"> WebSocket Detection
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableCookie"> Cookie Management
+        </label>
+      </div>
+    </section>
+    
+    <section class="module-section">
+      <h2>Week 6: Optimization Features</h2>
+      <div class="module-controls">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableSampling"> Intelligent Sampling (85% similarity)
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableStability"> Stability Detection (5s thorough)
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableRetry"> Auto Retry (3 attempts)
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableOptimization"> Performance Optimization
+        </label>
+      </div>
+    </section>
+
+    <section class="module-section">
+      <h2>Week 7: Security Features</h2>
+      <div class="module-controls">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableSanitization"> Data Sanitization (PII/Credentials)
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableValidation"> Input Validation (URLs/Selectors)
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableXSSProtection"> XSS Protection (Content Filtering)
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableSecureStorage"> Secure Storage (AES-256 Encryption)
+        </label>
+      </div>
+    </section>
+
+    <section class="module-section">
+      <h2>Week 8: Advanced Analytics</h2>
+      <div class="module-controls">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableJourneys"> User Journey Mapping
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableHeatmap"> Heatmap Data Collection
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableFunnel"> Conversion Funnel Analysis
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableReporting"> Advanced Reporting
+        </label>
+      </div>
+    </section>
+    
+    <div class="controls">
+      <button id="startBtn" class="btn-primary">Start Crawl</button>
+      <button id="stopBtn" class="btn-secondary" disabled>Stop</button>
+      <button id="exportBtn" class="btn-secondary" disabled>Export JSON</button>
+    </div>
+    
+    <div class="status">
+      <p id="statusText">Ready to crawl</p>
+    </div>
+    
+    <div class="results" id="results" style="display:none;">
+      <h3>Results</h3>
+      <p>Nodes: <span id="nodeCount">0</span></p>
+      <p>Edges: <span id="edgeCount">0</span></p>
+      <div id="roleResults" style="display:none;">
+        <h4>Role Breakdown</h4>
+        <div id="roleStats"></div>
+      </div>
+    </div>
+    
+    <section class="stats-section" id="statsSection" style="display:none;">
+      <h2>Crawl Statistics</h2>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <label>Real Page Success:</label>
+          <span id="realPagePercent">--</span>
+        </div>
+        <div class="stat-item">
+          <label>Total Pages:</label>
+          <span id="totalPages">0</span>
+        </div>
+      </div>
+      <h3>Strategy Breakdown</h3>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <label>Iframe:</label>
+          <span id="iframePercent">--</span>
+        </div>
+        <div class="stat-item">
+          <label>Offscreen:</label>
+          <span id="offscreenPercent">--</span>
+        </div>
+        <div class="stat-item">
+          <label>Navigation:</label>
+          <span id="navPercent">--</span>
+        </div>
+        <div class="stat-item">
+          <label>Synthetic:</label>
+          <span id="syntheticPercent">--</span>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+  <script src="credential-manager.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
